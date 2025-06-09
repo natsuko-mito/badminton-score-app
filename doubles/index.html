@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>バドミントンスコアボード (ダブルス)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+      body {
+          font-family: 'Inter', 'Noto Sans JP', sans-serif;
+          touch-action: manipulation;
+      }
+      .player-score {
+          transition: all 0.2s ease-in-out;
+      }
+      .score-display {
+          font-size: 10vw;
+      }
+      @media (min-width: 768px) {
+          .score-display {
+              font-size: 5rem;
+          }
+      }
+      .modal {
+          transition: opacity 0.3s ease-in-out;
+      }
+      .modal-content {
+          transition: transform 0.3s ease-in-out;
+      }
+      .player-marker {
+          font-weight: bold;
+          font-size: clamp(0.75rem, 2.5vw, 1rem);
+          min-width: 60px;
+          padding: 0.5rem;
+          border-radius: 0.5rem;
+          text-align: center;
+          transition: all 0.3s ease-in-out;
+          border: 3px solid transparent;
+          word-break: keep-all;
+          white-space: nowrap;
+      }
+      .player-marker.serving {
+          border-color: #f59e0b; /* amber-500 */
+          transform: scale(1.1);
+          box-shadow: 0 0 15px rgba(245, 158, 11, 0.7);
+      }
+      .court {
+          background-color: #D1FAE5; /* green-100 */
+          border: 4px solid #4B5563; /* gray-600 */
+      }
+      .court-line {
+          border-color: #4B5563; /* gray-600 */
+      }
+      .net {
+          background-color: #1F2937; /* gray-800 */
+      }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen py-4">
+
+<!-- App Container -->
+<div id="app-container" class="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 p-4">
+
+  <!-- Setup Modal -->
+  <div id="setupModal" class="p-4 md:p-6 bg-white shadow-lg rounded-2xl w-full">
+    <h2 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6">ダブルス設定</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <h3 class="text-xl font-bold text-blue-700">TEAM A</h3>
+        <div>
+          <label for="playerA1" class="block text-sm font-medium text-gray-700">プレイヤー 1</label>
+          <input type="text" id="playerA1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" value="Player A1">
+        </div>
+        <div>
+          <label for="playerA2" class="block text-sm font-medium text-gray-700">プレイヤー 2</label>
+          <input type="text" id="playerA2" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" value="Player A2">
+        </div>
+      </div>
+      <div class="space-y-4 bg-red-50 p-4 rounded-lg border border-red-200">
+        <h3 class="text-xl font-bold text-red-700">TEAM B</h3>
+        <div>
+          <label for="playerB1" class="block text-sm font-medium text-gray-700">プレイヤー 1</label>
+          <input type="text" id="playerB1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500" value="Player B1">
+        </div>
+        <div>
+          <label for="playerB2" class="block text-sm font-medium text-gray-700">プレイヤー 2</label>
+          <input type="text" id="playerB2" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500" value="Player B2">
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-8">
+      <h3 class="text-xl font-bold text-center text-gray-700 mb-4">最初のサーバーは？</h3>
+      <div id="first-server-options" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+    </div>
+
+    <button onclick="startMatch()" class="w-full py-3 bg-green-500 text-white font-bold text-xl rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300">試合開始</button>
+  </div>
+
+  <!-- Main Scoreboard (Initially hidden) -->
+  <div id="scoreboard" class="hidden w-full lg:w-1/2 flex-shrink-0">
+    <div class="bg-white shadow-lg rounded-2xl p-4 md:p-6 h-full flex flex-col">
+      <div class="text-center mb-4">
+        <h2 class="text-xl md:text-2xl font-bold text-gray-600">GAMES WON</h2>
+        <div class="flex justify-center items-center space-x-8 mt-2">
+          <div class="text-center"><p id="teamANameHeader" class="text-blue-600 font-semibold md:text-lg">TEAM A</p><p id="gamesA" class="text-3xl md:text-4xl font-bold">0</p></div>
+          <div class="text-center"><p id="teamBNameHeader" class="text-red-600 font-semibold md:text-lg">TEAM B</p><p id="gamesB" class="text-3xl md:text-4xl font-bold">0</p></div>
+        </div>
+      </div>
+
+      <!-- Game History -->
+      <div id="game-history-container" class="my-4 md:my-6">
+        <h3 class="text-center text-lg font-bold text-gray-700 mb-2">ゲーム履歴</h3>
+        <ul id="game-history-list" class="space-y-1">
+          <!-- History items will be injected here -->
+        </ul>
+      </div>
+
+      <div class="w-full h-1 bg-gray-200 rounded-full my-4 md:my-6"></div>
+
+      <div class="grid grid-cols-2 gap-4 flex-grow">
+        <div id="teamA-card" class="player-score bg-blue-50 border-2 border-gray-200 rounded-xl p-4 flex flex-col items-center justify-between">
+          <div><h3 id="teamAName" class="text-2xl md:text-3xl font-bold text-blue-800 text-center">TEAM A</h3></div>
+          <p id="scoreA" class="score-display font-bold text-blue-600 my-4">0</p>
+          <button onclick="addPoint('A')" class="w-full py-3 md:py-4 bg-blue-500 text-white font-bold text-xl rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105 active:scale-95">+1 Point</button>
+        </div>
+        <div id="teamB-card" class="player-score bg-red-50 border-2 border-gray-200 rounded-xl p-4 flex flex-col items-center justify-between">
+          <div><h3 id="teamBName" class="text-2xl md:text-3xl font-bold text-red-800 text-center">TEAM B</h3></div>
+          <p id="scoreB" class="score-display font-bold text-red-600 my-4">0</p>
+          <button onclick="addPoint('B')" class="w-full py-3 md:py-4 bg-red-500 text-white font-bold text-xl rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300 transition-transform transform hover:scale-105 active:scale-95">+1 Point</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mt-6">
+        <button onclick="resetGameConfirm()" class="py-3 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700">Reset Game</button>
+        <button onclick="resetMatchConfirm()" class="py-3 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600">Reset Match</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Court Visualization (Initially hidden) -->
+  <div id="court-container" class="hidden w-full lg:w-1/2 flex-shrink-0">
+    <div class="bg-white shadow-lg rounded-2xl p-4 md:p-6 h-full flex flex-col justify-center">
+      <div class="text-center mb-4">
+        <p class="font-bold text-xl md:text-2xl text-gray-700" id="server-name"></p>
+        <p class="text-lg md:text-xl text-green-600 font-semibold" id="serving-side"></p>
+      </div>
+      <div id="court-visualization" class="w-full max-w-md mx-auto aspect-[1/1.5] court relative flex flex-col rounded-lg overflow-hidden">
+        <div class="flex-1 flex court-line border-b-2">
+          <div class="flex-1 court-line border-r-2 flex items-center justify-center p-1"><div id="player-pos-B-left" class="player-marker bg-red-200 text-red-800"></div></div>
+          <div class="flex-1 flex items-center justify-center p-1"><div id="player-pos-B-right" class="player-marker bg-red-200 text-red-800"></div></div>
+        </div>
+        <div class="absolute top-1/2 left-0 right-0 h-1.5 net"></div>
+        <div class="flex-1 flex">
+          <div class="flex-1 court-line border-r-2 flex items-center justify-center p-1"><div id="player-pos-A-left" class="player-marker bg-blue-200 text-blue-800"></div></div>
+          <div class="flex-1 flex items-center justify-center p-1"><div id="player-pos-A-right" class="player-marker bg-blue-200 text-blue-800"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modals -->
+<div id="gameOverModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal"><div class="bg-white p-8 rounded-2xl shadow-2xl text-center transform scale-95 modal-content"><h2 id="winnerText" class="text-3xl font-bold mb-4"></h2><p class="text-xl mb-6">Congratulations!</p><button onclick="startNewGame()" class="px-8 py-3 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600">New Game</button></div></div>
+<div id="confirmModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal"><div class="bg-white p-8 rounded-2xl shadow-2xl text-center transform scale-95 modal-content"><h2 id="confirmText" class="text-2xl font-bold mb-6"></h2><div class="flex justify-center gap-4"><button id="confirmYes" class="px-8 py-3 bg-red-500 text-white font-bold rounded-lg shadow-md hover:bg-red-600">はい</button><button id="confirmNo" class="px-8 py-3 bg-gray-300 font-bold rounded-lg shadow-md hover:bg-gray-400">いいえ</button></div></div></div>
+
+<script>
+  // --- STATE ---
+  let state = { scores: { A: 0, B: 0 }, games: { A: 0, B: 0 }, gameHistory: [], serverTeam: null, previousServerTeam: null, playerNames: { A1: '', A2: '', B1: '', B2: '' }, teamPositions: { A: { right: null, left: null }, B: { right: null, left: null } }, gameInProgress: false, winnerOfLastGame: null, };
+
+  // --- DOM ELEMENTS ---
+  const DOMElements = {
+    appContainer: document.getElementById('app-container'),
+    setupModal: document.getElementById('setupModal'),
+    scoreboard: document.getElementById('scoreboard'),
+    courtContainer: document.getElementById('court-container'),
+    firstServerOptions: document.getElementById('first-server-options'),
+    scoreA: document.getElementById('scoreA'), scoreB: document.getElementById('scoreB'),
+    gamesA: document.getElementById('gamesA'), gamesB: document.getElementById('gamesB'),
+    gameHistoryList: document.getElementById('game-history-list'),
+    teamAName: document.getElementById('teamAName'), teamBName: document.getElementById('teamBName'),
+    teamANameHeader: document.getElementById('teamANameHeader'), teamBNameHeader: document.getElementById('teamBNameHeader'),
+    serverName: document.getElementById('server-name'), servingSide: document.getElementById('serving-side'),
+    teamACard: document.getElementById('teamA-card'), teamBCard: document.getElementById('teamB-card'),
+    gameOverModal: document.getElementById('gameOverModal'), winnerText: document.getElementById('winnerText'),
+    confirmModal: document.getElementById('confirmModal'), confirmText: document.getElementById('confirmText'),
+    confirmYes: document.getElementById('confirmYes'), confirmNo: document.getElementById('confirmNo'),
+    playerPos: {
+      AR: document.getElementById('player-pos-A-right'), AL: document.getElementById('player-pos-A-left'),
+      BR: document.getElementById('player-pos-B-right'), BL: document.getElementById('player-pos-B-left'),
+    }
+  };
+  const playerInputs = { A1: document.getElementById('playerA1'), A2: document.getElementById('playerA2'), B1: document.getElementById('playerB1'), B2: document.getElementById('playerB2') };
+
+  // --- SETUP ---
+  function updateFirstServerOptions() {
+    const names = { A1: playerInputs.A1.value, A2: playerInputs.A2.value, B1: playerInputs.B1.value, B2: playerInputs.B2.value, };
+    DOMElements.firstServerOptions.innerHTML = '';
+    ['A1', 'A2', 'B1', 'B2'].forEach((pKey, index) => {
+      const team = pKey.includes('A') ? 'A' : 'B';
+      const teamColor = team === 'A' ? 'blue' : 'red';
+      DOMElements.firstServerOptions.innerHTML += `<label class="flex items-center p-3 border rounded-lg cursor-pointer bg-${teamColor}-50 border-${teamColor}-200 has-[:checked]:bg-${teamColor}-200 has-[:checked]:border-${teamColor}-500"><input type="radio" name="first-server" value="${pKey}" class="h-5 w-5 mr-3 text-${teamColor}-600 focus:ring-${teamColor}-500" ${index === 0 ? 'checked' : ''}><span class="font-semibold text-${teamColor}-800">${names[pKey]}</span></label>`;
+    });
+  }
+
+  Object.values(playerInputs).forEach(input => input.addEventListener('input', updateFirstServerOptions));
+
+  function startMatch() {
+    Object.keys(playerInputs).forEach(pKey => { state.playerNames[pKey] = playerInputs[pKey].value; });
+    const firstServerKey = document.querySelector('input[name="first-server"]:checked').value;
+    const firstServerTeam = firstServerKey.includes('A') ? 'A' : 'B';
+    state.serverTeam = firstServerTeam;
+
+    const teamAKeys = ['A1', 'A2'];
+    const teamBKeys = ['B1', 'B2'];
+    if (firstServerTeam === 'A') {
+      state.teamPositions.A.right = firstServerKey; state.teamPositions.A.left = teamAKeys.find(k => k !== firstServerKey);
+      state.teamPositions.B.right = 'B1'; state.teamPositions.B.left = 'B2';
+    } else {
+      state.teamPositions.B.right = firstServerKey; state.teamPositions.B.left = teamBKeys.find(k => k !== firstServerKey);
+      state.teamPositions.A.right = 'A1'; state.teamPositions.A.left = 'A2';
+    }
+
+    state.gameInProgress = true;
+    DOMElements.setupModal.style.display = 'none';
+    DOMElements.scoreboard.style.display = 'block';
+    DOMElements.courtContainer.style.display = 'flex';
+    DOMElements.appContainer.classList.add('lg:w-full');
+    DOMElements.appContainer.classList.remove('max-w-4xl');
+
+    updateDisplay();
+  }
+
+  // --- CORE LOGIC ---
+  function addPoint(scoringTeam) {
+    if (!state.gameInProgress) return;
+    state.previousServerTeam = state.serverTeam;
+    state.serverTeam = scoringTeam;
+    state.scores[scoringTeam]++;
+    if (state.serverTeam === state.previousServerTeam) { swapPlayers(state.serverTeam); }
+    updateDisplay();
+    checkWinCondition();
+  }
+
+  function swapPlayers(team) {
+    const pos = state.teamPositions[team];
+    [pos.right, pos.left] = [pos.left, pos.right];
+  }
+
+  function checkWinCondition() {
+    let winner = null;
+    const { A, B } = state.scores;
+    if ((A >= 21 && A - B >= 2) || A === 30) winner = 'A';
+    if ((B >= 21 && B - A >= 2) || B === 30) winner = 'B';
+    if (winner) { handleGameOver(winner); }
+  }
+
+  function handleGameOver(winnerTeam) {
+    state.gameInProgress = false;
+    state.games[winnerTeam]++;
+    state.winnerOfLastGame = winnerTeam;
+    state.gameHistory.push({ ...state.scores }); // Add current score to history
+    DOMElements.winnerText.textContent = `TEAM ${winnerTeam} WINS!`;
+    DOMElements.gameOverModal.classList.remove('hidden');
+    setTimeout(() => DOMElements.gameOverModal.querySelector('.modal-content').classList.replace('scale-95', 'scale-100'), 10);
+    updateDisplay();
+  }
+
+  // --- GAME & MATCH RESETS ---
+  function startNewGame() {
+    state.scores = { A: 0, B: 0 };
+    state.serverTeam = state.winnerOfLastGame;
+    state.gameInProgress = true;
+    const servingTeam = state.winnerOfLastGame;
+    const receivingTeam = servingTeam === 'A' ? 'B' : 'A';
+    state.teamPositions[servingTeam].right = state.playerNames[`${servingTeam}1`].includes(playerInputs[`${servingTeam}1`].value) ? `${servingTeam}1` : `${servingTeam}2`;
+    state.teamPositions[servingTeam].left = state.playerNames[`${servingTeam}1`].includes(playerInputs[`${servingTeam}1`].value) ? `${servingTeam}2` : `${servingTeam}1`;
+    state.teamPositions[receivingTeam].right = `${receivingTeam}1`;
+    state.teamPositions[receivingTeam].left = `${receivingTeam}2`;
+    DOMElements.gameOverModal.classList.add('hidden');
+    DOMElements.gameOverModal.querySelector('.modal-content').classList.replace('scale-100', 'scale-95');
+    updateDisplay();
+  }
+
+  function resetGame() {
+    state.scores = { A: 0, B: 0 };
+    state.serverTeam = state.winnerOfLastGame || (document.querySelector('input[name="first-server"]:checked')?.value.includes('A') ? 'A' : 'B');
+    state.gameInProgress = true;
+    updateDisplay();
+  }
+
+  function resetMatch() {
+    state = { scores: { A: 0, B: 0 }, games: { A: 0, B: 0 }, gameHistory: [], serverTeam: null, previousServerTeam: null, playerNames: { A1: '', A2: '', B1: '', B2: '' }, teamPositions: { A: { right: null, left: null }, B: { right: null, left: null } }, gameInProgress: false, winnerOfLastGame: null, };
+    DOMElements.scoreboard.style.display = 'none';
+    DOMElements.courtContainer.style.display = 'none';
+    DOMElements.setupModal.style.display = 'block';
+    DOMElements.appContainer.classList.remove('lg:w-full');
+    DOMElements.appContainer.classList.add('max-w-4xl');
+    playerInputs.A1.value = "Player A1"; playerInputs.A2.value = "Player A2";
+    playerInputs.B1.value = "Player B1"; playerInputs.B2.value = "Player B2";
+    updateFirstServerOptions();
+  }
+
+  // --- CONFIRMATION MODAL ---
+  function showConfirmModal(text, onConfirm) {
+    DOMElements.confirmText.textContent = text;
+    DOMElements.confirmModal.classList.remove('hidden');
+    setTimeout(() => DOMElements.confirmModal.querySelector('.modal-content').classList.replace('scale-95', 'scale-100'), 10);
+    DOMElements.confirmYes.onclick = () => { onConfirm(); hideConfirmModal(); };
+    DOMElements.confirmNo.onclick = hideConfirmModal;
+  }
+  function hideConfirmModal() {
+    DOMElements.confirmModal.classList.add('hidden');
+    DOMElements.confirmModal.querySelector('.modal-content').classList.replace('scale-100', 'scale-95');
+  }
+  function resetGameConfirm() { showConfirmModal('現在のゲームをリセットしますか？', resetGame); }
+  function resetMatchConfirm() { showConfirmModal('すべてのスコアをリセットして、最初の設定画面に戻りますか？', resetMatch); }
+
+  // --- DISPLAY UPDATES ---
+  function updateDisplay() {
+    DOMElements.scoreA.textContent = state.scores.A; DOMElements.scoreB.textContent = state.scores.B;
+    DOMElements.gamesA.textContent = state.games.A; DOMElements.gamesB.textContent = state.games.B;
+    DOMElements.teamAName.textContent = 'TEAM A'; DOMElements.teamBName.textContent = 'TEAM B';
+    DOMElements.teamANameHeader.textContent = 'TEAM A'; DOMElements.teamBNameHeader.textContent = 'TEAM B';
+    updateServerInfo();
+    updateCourtDisplay();
+    updateGameHistoryDisplay();
+  }
+
+  function updateServerInfo() {
+    const { serverTeam, teamPositions, scores, playerNames } = state;
+    if (!serverTeam) {
+      DOMElements.serverName.textContent = '---'; DOMElements.servingSide.textContent = '試合開始前'; return;
+    }
+    const serverSideScore = scores[serverTeam];
+    const isRightCourt = serverSideScore % 2 === 0;
+    const servingPlayerKey = isRightCourt ? teamPositions[serverTeam].right : teamPositions[serverTeam].left;
+    const servingPlayerName = playerNames[servingPlayerKey];
+    DOMElements.serverName.textContent = `サーバー: ${servingPlayerName} (TEAM ${serverTeam})`;
+    DOMElements.servingSide.textContent = `サーブ: ${isRightCourt ? 'ライトコート' : 'レフトコート'}`;
+    const highlightCard = serverTeam === 'A' ? DOMElements.teamACard : DOMElements.teamBCard;
+    const otherCard = serverTeam === 'A' ? DOMElements.teamBCard : DOMElements.teamACard;
+    const highlightColor = serverTeam === 'A' ? '#2563EB' : '#DC2626';
+    highlightCard.style.borderColor = highlightColor; highlightCard.style.transform = 'scale(1.03)';
+    otherCard.style.borderColor = '#E5E7EB'; otherCard.style.transform = 'scale(1)';
+  }
+
+  function updateCourtDisplay() {
+    const { serverTeam, teamPositions, scores, playerNames } = state;
+    DOMElements.playerPos.AR.textContent = playerNames[teamPositions.A.right] || '';
+    DOMElements.playerPos.AL.textContent = playerNames[teamPositions.A.left] || '';
+    DOMElements.playerPos.BR.textContent = playerNames[teamPositions.B.right] || '';
+    DOMElements.playerPos.BL.textContent = playerNames[teamPositions.B.left] || '';
+    Object.values(DOMElements.playerPos).forEach(el => el.classList.remove('serving'));
+    if (!serverTeam) return;
+    const serverSideScore = scores[serverTeam];
+    const isRightCourt = serverSideScore % 2 === 0;
+    let servingPlayerEl;
+    if (serverTeam === 'A') { servingPlayerEl = isRightCourt ? DOMElements.playerPos.AR : DOMElements.playerPos.AL; }
+    else { servingPlayerEl = isRightCourt ? DOMElements.playerPos.BR : DOMElements.playerPos.BL; }
+    servingPlayerEl.classList.add('serving');
+  }
+
+  function updateGameHistoryDisplay() {
+    const listEl = DOMElements.gameHistoryList;
+    listEl.innerHTML = '';
+    if (state.gameHistory.length === 0) {
+      listEl.innerHTML = '<p class="text-sm text-center text-gray-500">まだ終了したゲームはありません。</p>';
+    } else {
+      state.gameHistory.forEach((game, index) => {
+        const winner = game.A > game.B ? 'A' : 'B';
+        const listItem = `
+                    <li class="flex justify-between items-center text-sm px-3 py-1.5 rounded ${winner === 'A' ? 'bg-blue-100' : 'bg-red-100'}">
+                        <span class="font-bold">G${index + 1}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-blue-700">${game.A}</span>
+                            <span>-</span>
+                            <span class="font-bold text-red-700">${game.B}</span>
+                        </div>
+                    </li>
+                `;
+        listEl.innerHTML += listItem;
+      });
+    }
+  }
+
+  // --- INITIALIZATION ---
+  window.onload = () => {
+    updateFirstServerOptions();
+    DOMElements.scoreboard.style.display = 'none';
+    DOMElements.courtContainer.style.display = 'none';
+  };
+</script>
+</body>
+</html>
